@@ -1,0 +1,86 @@
+#!/bin/bash
+
+# lainshot
+# v0.i-might-update-this-eventually.1
+
+usage () {
+    echo "Usage: lainshot [options]"
+    echo "Options:"
+    echo "    -c|--clipboard        : Copies generated shortlink to clipboard (KDE)"
+    echo "    -d|--dir [directory]  : Specify a directory to save the screenshot to"
+    echo "    -s|--save-only        : Save the screenshot without uploading it"
+    echo "    -h|--help             : Prints this message"
+}
+
+uppomf="https://pomf.lain.la/upload.php"
+#downpomf="https://pomf2.lain.la/"
+
+shortener="https://love-la.in/submit/?url="
+
+timestamp=$(date +%s)
+
+POSITIONAL_ARGS=()
+
+doUpload=1
+clipboard=1
+screenshotDir="$XDG_PICTURES_DIR/Screenshots"
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -s|--save-only)
+            doUpload=0
+            shift
+            ;;
+        -c|--clipboard)
+            clipboard=1
+            shift
+            ;;
+        -d|--dir)
+            screenshotDir="$2"
+            shift
+            ;;
+        *)
+            POSITIONAL_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+
+
+if [[ ! -e "$screenshotDir" ]]; then
+    mkdir "$screenshotDir" || ( echo "Can't create screenshot directory!" && exit 1 )
+elif [[ ! -d $screenshotDir ]]; then
+    echo "$screenshotDir exists but is not a directory!" && exit 1
+fi
+
+if command -v spectacle > /dev/null; then
+    spectacle -brn -o "$screenshotDir/$timestamp.jpg"
+elif command -v scrot > /dev/null; then
+    scrot -f -s -l mode=classic,style=dash,width=1,color="#2b59a7" -F ~/"$screenshotDir/$timestamp.jpg"
+elif command -v shutter > /dev/null; then
+    shutter -s -o "$screenshotDir/$timestamp.jpg"
+else
+
+image="$screenshotDir/$timestamp.jpg"
+
+if [[ ! -e "$image" ]]; then
+    echo "Screenshot capture failed!" && exit 1
+fi
+
+if [[ ! $doUpload ]]; then
+    echo "$image" && exit 0;
+else
+    imageUrl=$(curl -fsSL -F "files[]=@$image" "$uppomf" | jq -c -r '.files[].url')
+
+    shortlink=$(curl -fsSL "$shortener$imageUrl")
+
+    if [[ ! $clipboard ]]; then
+        echo "$shortlink" && exit 0;
+    else
+        qdbus org.kde.klipper /klipper setClipboardContents "$shortlink" && exit 0;
+    fi
+fi
