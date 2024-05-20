@@ -1,12 +1,18 @@
 # lainshot
 [![WTFPL](http://www.wtfpl.net/wp-content/uploads/2012/12/wtfpl-badge-4.png)](http://wtfpl.net/)\
-**Command Line ShareX Wannabe**
+**command line ShareX wannabe**
 
+lainshot serves as an interface between popular screenshot utilities and a file uploader/URL shortener. Currently, custom uploaders/shorteners are **not** supported, but this may change in the future.
 
-## Usage
 Default uploader: [pomf.lain.la](https://pomf.lain.la)\
 Default URL shortener: [love-la.in](https://love-la.in)
 
+Supported screenshot utilities:
+- [spectacle](https://invent.kde.org/graphics/spectacle)
+- [scrot](https://github.com/resurrecting-open-source-projects/scrot)
+- [shutter](https://github.com/shutter-project/shutter)
+
+## Usage
 Running `lainshot` with no options defaults to `lainshot -a -s`, which will screenshot the active window and save it. In most cases, pictures are saved to `~/Pictures/Screenshots` by default, which will be created if it does not exist.
 
 ### Options
