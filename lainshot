@@ -29,16 +29,20 @@ usage () {
     echo "  -c, --clipboard        : Copy output to clipboard (requires klipper)"
     echo "  -d, --dir [directory]  : Specify a directory to save the screenshot to"
     echo "                           (default: '-d ${XDG_PICTURES_DIR:-$HOME/Pictures}')"
-    echo "  -s, --save-only        : Save the screenshot without uploading it and output"
+    echo "  -s, --shortlink        : Generate a shortlink with love-la.in after uploading"
+    echo "                           (must be used together with --upload[-only])"
+    echo "  -S, --save-only        : Save the screenshot without uploading it and output"
     echo "                           the filename (default)"
     echo "  -h, --help             : Print this message"
-    echo "  -p, --upload-only      : Upload the screenshot to pomf.lain.la and delete the"
-    echo "                           local file"
     echo "  -r, --region           : Manually select a region to capture"
     echo "  -u, --upload           : Upload the screenshot to pomf.lain.la without"
     echo "                           deleting the local file"
-    echo "  -l, --shortlink        : Generate a shortlink with love-la.in after uploading"
-    echo "                           (must be used together with --upload[-only])"
+    echo "  -U, --upload-only      : Upload the screenshot to pomf.lain.la and delete the"
+    echo "                           local file"
+    echo "Screenshot Utilities:"
+    echo "  --scrot                : Uses scrot to take the screenshot"
+    echo "  --shutter              : Uses shutter to take the screenshot"
+    echo "  --spectacle            : Uses spectacle to take the screenshot"
 }
 
 upload=0
@@ -46,6 +50,7 @@ clipboard=0
 shorten=0
 deleteWhenUploaded=0
 mode=active
+screenshotTool=
 
 uppomf="https://pomf.lain.la/upload.php"
 #downpomf="https://pomf2.lain.la/"
@@ -62,7 +67,7 @@ fi
 
 screenshotDir="${XDG_PICTURES_DIR:-$HOME/Pictures}/Screenshots"
 
-VALID_ARGS=$(getopt -o "acd:shprul" --long "active,clipboard,dir:,save-only,help,upload-only,region,upload,shortlink" -- "$@")
+VALID_ARGS=$(getopt -o "acd:sShruU" --long "active,clipboard,dir:,shortlink,save-only,help,region,upload,upload-only,scrot,shutter,spectacle" -- "$@")
 if [[ $? -ne 0 ]]; then
     usage && exit 1
 fi
@@ -111,6 +116,18 @@ while [ : ]; do
             shorten=1
             shift
             ;;
+        --scrot)
+            screenshotTool=scrot
+            shift
+            ;;
+        --shutter)
+            screenshotTool=shutter
+            shift
+            ;;
+        --spectacle)
+            screenshotTool=spectacle
+            shift
+            ;;
         -- | -?)
             shift
             break
@@ -129,26 +146,52 @@ elif [[ ! -d $screenshotDir ]]; then
 fi
 
 # take the screenshot
-if command -v spectacle > /dev/null; then
-    if [[ $mode == active ]]; then
-        spectacle -ban -o "$screenshotDir/$timestamp.jpg"
-    elif [[ $mode == region ]]; then
-        spectacle -brn -o "$screenshotDir/$timestamp.jpg"
-    fi
-elif command -v scrot > /dev/null; then
-    if [[ $mode == active ]]; then
-        scrot -u -F ~/"$screenshotDir/$timestamp.jpg"
-    elif [[ $mode == region ]]; then
-        scrot -fs -l mode=classic,style=dash,width=1,color="#2b59a7" -F ~/"$screenshotDir/$timestamp.jpg"
-    fi
-elif command -v shutter > /dev/null; then
-    if [[ $mode == active ]]; then
-        shutter -a -o "$screenshotDir/$timestamp.jpg"
-    elif [[ $mode == region ]]; then
-        shutter -s -o "$screenshotDir/$timestamp.jpg"
+if [[ -z $screenshotTool ]]; then
+    if command -v spectacle > /dev/null; then
+        if [[ $mode == active ]]; then
+            spectacle -ban -o "$screenshotDir/$timestamp.jpg"
+        elif [[ $mode == region ]]; then
+            spectacle -brn -o "$screenshotDir/$timestamp.jpg"
+        fi
+    elif command -v scrot > /dev/null; then
+        if [[ $mode == active ]]; then
+            scrot -u -F ~/"$screenshotDir/$timestamp.jpg"
+        elif [[ $mode == region ]]; then
+            scrot -fs -l mode=classic,style=dash,width=1,color="#2b59a7" -F "$screenshotDir/$timestamp.jpg"
+        fi
+    elif command -v shutter > /dev/null; then
+        if [[ $mode == active ]]; then
+            shutter -a -o "$screenshotDir/$timestamp.jpg"
+        elif [[ $mode == region ]]; then
+            shutter -s -o "$screenshotDir/$timestamp.jpg"
+        fi
+    else
+        echo "Couldn't find supported screenshot tool. Please ensure that one of the supported tools (spectacle, scrot, shutter) is available on the PATH and try again!" && exit 1
     fi
 else
-    echo "Couldn't find supported screenshot tool. Please ensure that one of the supported tools (spectacle, scrot, shutter) is available on the PATH and try again!" && exit 1
+    case $screenshotTool in
+        spectacle)
+            if [[ $mode == active ]]; then
+                spectacle -ban -o "$screenshotDir/$timestamp.jpg"
+            elif [[ $mode == region ]]; then
+                spectacle -brn -o "$screenshotDir/$timestamp.jpg"
+            fi
+            ;;
+        scrot)
+            if [[ $mode == active ]]; then
+                scrot -u -F ~/"$screenshotDir/$timestamp.jpg"
+            elif [[ $mode == region ]]; then
+                scrot -fs -l mode=classic,style=dash,width=1,color="#2b59a7" -F "$screenshotDir/$timestamp.jpg"
+            fi
+            ;;
+        shutter)
+            if [[ $mode == active ]]; then
+                shutter -a -o "$screenshotDir/$timestamp.jpg"
+            elif [[ $mode == region ]]; then
+                shutter -s -o "$screenshotDir/$timestamp.jpg"
+            fi
+            ;;
+    esac
 fi
 
 image="$screenshotDir/$timestamp.jpg"
