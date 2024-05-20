@@ -45,6 +45,10 @@ usage () {
     echo "  --spectacle            : Uses spectacle to take the screenshot"
 }
 
+errsay () {
+    >&2 echo "[$0]: $@"
+}
+
 upload=0
 clipboard=0
 shorten=0
@@ -61,7 +65,7 @@ timestamp=$(date +%s)
 
 if [[ -z "$XDG_PICTURES_DIR" ]]; then
     if [[ ! -e ~/Pictures ]]; then
-        mkdir ~/Pictures || ( echo "Directory ~/Pictures does not exist and cannot be created!" && exit 1)
+        mkdir ~/Pictures || ( errsay "Directory ~/Pictures does not exist and cannot be created!" && exit 1)
     fi
 fi
 
@@ -85,13 +89,17 @@ while [ : ]; do
             ;;
         -d | --dir)
             if [[ ! -d "$2" ]]; then
-                echo "'$2' does not exist or is not a directory!" && exit 1
+                errsay "'$2' does not exist or is not a directory!" && exit 1
             else
                 screenshotDir="$2"
             fi
             shift 2
             ;;
-        -s | --save-only)
+        -s | --shortlink)
+            shorten=1
+            shift
+            ;;
+        -S | --save-only)
             upload=0
             shift
             ;;
@@ -107,13 +115,9 @@ while [ : ]; do
             upload=1
             shift
             ;;
-        -p | --upload-only)
+        -U | --upload-only)
             upload=1
             deleteWhenUploaded=1
-            shift
-            ;;
-        -l | --shortlink)
-            shorten=1
             shift
             ;;
         --scrot)
@@ -136,13 +140,13 @@ while [ : ]; do
 done
 
 if [[ ($upload -eq 0) && ($shorten -eq 1) ]]; then
-    echo "Option '--shortlink' cannot be used without '--upload' or '--upload-only'" && exit 1
+    errsay "Option '--shortlink' cannot be used without '--upload' or '--upload-only'" && exit 1
 fi
 
 if [[ ! -e "$screenshotDir" ]]; then
-    mkdir "$screenshotDir" || ( echo "Can't create directory $screenshotDir" && exit 1 )
+    mkdir "$screenshotDir" || ( errsay "Can't create directory $screenshotDir" && exit 1 )
 elif [[ ! -d $screenshotDir ]]; then
-    echo "$screenshotDir exists but is not a directory" && exit 1
+    errsay "$screenshotDir exists but is not a directory" && exit 1
 fi
 
 # take the screenshot
@@ -166,11 +170,15 @@ if [[ -z $screenshotTool ]]; then
             shutter -s -o "$screenshotDir/$timestamp.jpg"
         fi
     else
-        echo "Couldn't find supported screenshot tool. Please ensure that one of the supported tools (spectacle, scrot, shutter) is available on the PATH and try again!" && exit 1
+        errsay "Couldn't find supported screenshot tool. Please ensure that one of the supported tools (spectacle, scrot, shutter) is available on the PATH and try again!" && exit 1
     fi
 else
     case $screenshotTool in
         spectacle)
+            if ! command -v spectacle > /dev/null; then
+                errsay "Couldn't find spectacle on PATH" && exit 1;
+            fi
+
             if [[ $mode == active ]]; then
                 spectacle -ban -o "$screenshotDir/$timestamp.jpg"
             elif [[ $mode == region ]]; then
@@ -178,6 +186,10 @@ else
             fi
             ;;
         scrot)
+            if ! command -v scrot > /dev/null; then
+                errsay "Couldn't find scrot" && exit 1;
+            fi
+
             if [[ $mode == active ]]; then
                 scrot -u -F ~/"$screenshotDir/$timestamp.jpg"
             elif [[ $mode == region ]]; then
@@ -185,6 +197,10 @@ else
             fi
             ;;
         shutter)
+            if ! command -v shutter > /dev/null; then
+                errsay "Couldn't find shutter on PATH" && exit 1;
+            fi
+
             if [[ $mode == active ]]; then
                 shutter -a -o "$screenshotDir/$timestamp.jpg"
             elif [[ $mode == region ]]; then
@@ -198,7 +214,7 @@ image="$screenshotDir/$timestamp.jpg"
 
 # die if screenshot failed to save
 if [[ ! -e "$image" ]]; then
-    echo "Screenshot capture failed!" && exit 1
+    errsay "Screenshot capture failed!" && exit 1
 fi
 
 # upload and shorten url
