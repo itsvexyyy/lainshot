@@ -31,6 +31,10 @@ Running `lainshot` with no options defaults to `lainshot -a -s`, which will scre
 By default, the script outputs either the file name or URL to `stdout`.
 - `-c`/`--clipboard` - Copies the output to the KDE Klipper clipboard, if available, **in addition to** `stdout`.
 
+**Screenshot Utilities**
+- `--scrot` - Forces the use of `scrot` to take the screenshot. Will fail if `scrot` is not present.
+- `--shutter` - Forces the use of `shutter` to take the screenshot. Will fail if `shutter` is not present.
+- `--spectacle` - Forces the use of `spectacle` to take the screenshot. Will fail if `spectacle` is not present.
 
 ## Future plans
 - Custom uploader/shortener support
