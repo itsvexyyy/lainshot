@@ -62,7 +62,7 @@ fi
 
 screenshotDir="${XDG_PICTURES_DIR:-$HOME/Pictures}/Screenshots"
 
-VALID_ARGS=$(getopt -o "acd:shrul" --long "active,clipboard,dir:,save-only,help,region,upload,shortlink,upload-only" -- "$@")
+VALID_ARGS=$(getopt -o "acd:shprul" --long "active,clipboard,dir:,save-only,help,upload-only,region,upload,shortlink" -- "$@")
 if [[ $? -ne 0 ]]; then
     usage && exit 1
 fi
@@ -160,7 +160,7 @@ fi
 
 # upload and shorten url
 if [[ $upload -eq 0 && $shorten -eq 0 ]]; then
-    echo "$image" && exit 0
+    printf "$image" && exit 0
 else
     imageUrl=$(curl -fsSL -F "files[]=@$image" "$uppomf" | jq -c -r '.files[].url')
 
@@ -172,9 +172,13 @@ else
         shortlink=$(curl -fsSL "$shortener$imageUrl")
     fi
 
-    echo ${shortlink:-$imageUrl}
+    printf "${shortlink:-$imageUrl}"
 
     if [[ $clipboard -eq 1 ]]; then
-        qdbus org.kde.klipper /klipper setClipboardContents "${shortlink:-$imageUrl}"
+        if command -v qdbus > /dev/null; then
+            if qdbus | grep -q org.kde.klipper; then
+                qdbus org.kde.klipper /klipper setClipboardContents "${shortlink:-$imageUrl}"
+            fi
+        fi
     fi
 fi
