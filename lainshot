@@ -1,16 +1,51 @@
 #!/bin/bash
 
-# lainshot
-# v0.i-might-update-this-eventually.1
+# ┌──────────┐
+# │ lainshot │
+# ├──────────┴──────────────────────────────────────────┐
+# │ command-line ShareX wannabe                         │
+# ├─────────┬───────────────────────────────────────────┤
+# │ version │ 1.0.0                                     │
+# ├─────────┼───────────────────────────────────────────┤
+# │  author │ vexyyy@loves-la.in                        │
+# ├─────────┼───────────────────────────────────────────┤
+# │  source │ github.com/itsvexyyy/lainshot             │
+# ├─────────┴───────────────────────────────────────────┤
+# │ uses popular tools to take a screenshot and,        │
+# │ optionally, upload it to lain.la using curl.        │
+# │ this tool can also use love-la.in to shorten        │
+# │ the uploaded image's URL.                           │
+# │                                                     │
+# │                         made with love by vexyyy <3 │
+# └─────────────────────────────────────────────────────┘
 
 usage () {
-    echo "Usage: lainshot [options]"
+    echo "Usage: $0 [-acshrul] [-d DIR]"
+    echo "command-line ShareX wannabe"
+    echo "Output: FILENAME or URL"
+    echo ""
     echo "Options:"
-    echo "    -c|--clipboard        : Copies generated shortlink to clipboard (KDE)"
-    echo "    -d|--dir [directory]  : Specify a directory to save the screenshot to"
-    echo "    -s|--save-only        : Save the screenshot without uploading it"
-    echo "    -h|--help             : Prints this message"
+    echo "  -a, --active-window    : Capture the active window (default)"
+    echo "  -c, --clipboard        : Copy output to clipboard (requires klipper)"
+    echo "  -d, --dir [directory]  : Specify a directory to save the screenshot to"
+    echo "                           (default: '-d ${XDG_PICTURES_DIR:-$HOME/Pictures}')"
+    echo "  -s, --save-only        : Save the screenshot without uploading it and output"
+    echo "                           the filename (default)"
+    echo "  -h, --help             : Print this message"
+    echo "  -p, --upload-only      : Upload the screenshot to pomf.lain.la and delete the"
+    echo "                           local file"
+    echo "  -r, --region           : Manually select a region to capture"
+    echo "  -u, --upload           : Upload the screenshot to pomf.lain.la without"
+    echo "                           deleting the local file"
+    echo "  -l, --shortlink        : Generate a shortlink with love-la.in after uploading"
+    echo "                           (must be used together with --upload[-only])"
 }
+
+upload=0
+clipboard=0
+shorten=0
+deleteWhenUploaded=0
+mode=active
 
 uppomf="https://pomf.lain.la/upload.php"
 #downpomf="https://pomf2.lain.la/"
@@ -19,68 +54,127 @@ shortener="https://love-la.in/submit/?url="
 
 timestamp=$(date +%s)
 
-POSITIONAL_ARGS=()
+if [[ -z "$XDG_PICTURES_DIR" ]]; then
+    if [[ ! -e ~/Pictures ]]; then
+        mkdir ~/Pictures || ( echo "Directory ~/Pictures does not exist and cannot be created!" && exit 1)
+    fi
+fi
 
-doUpload=1
-clipboard=1
-screenshotDir="$XDG_PICTURES_DIR/Screenshots"
+screenshotDir="${XDG_PICTURES_DIR:-$HOME/Pictures}/Screenshots"
 
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        -h|--help)
-            usage
-            exit 0
-            ;;
-        -s|--save-only)
-            doUpload=0
+VALID_ARGS=$(getopt -o "acd:shrul" --long "active,clipboard,dir:,save-only,help,region,upload,shortlink,upload-only" -- "$@")
+if [[ $? -ne 0 ]]; then
+    usage && exit 1
+fi
+
+eval set -- "$VALID_ARGS"
+while [ : ]; do
+    case "$1" in
+        -a | --active-window)
+            mode=active
             shift
             ;;
-        -c|--clipboard)
+        -c | --clipboard)
             clipboard=1
             shift
             ;;
-        -d|--dir)
-            screenshotDir="$2"
+        -d | --dir)
+            if [[ ! -d "$2" ]]; then
+                echo "'$2' does not exist or is not a directory!" && exit 1
+            else
+                screenshotDir="$2"
+            fi
+            shift 2
+            ;;
+        -s | --save-only)
+            upload=0
             shift
             ;;
-        *)
-            POSITIONAL_ARGS+=("$1")
+        -h | --help)
+            usage && exit 0
             shift
+            ;;
+        -r | --region)
+            mode=region
+            shift
+            ;;
+        -u | --upload)
+            upload=1
+            shift
+            ;;
+        -p | --upload-only)
+            upload=1
+            deleteWhenUploaded=1
+            shift
+            ;;
+        -l | --shortlink)
+            shorten=1
+            shift
+            ;;
+        -- | -?)
+            shift
+            break
             ;;
     esac
 done
 
-
-if [[ ! -e "$screenshotDir" ]]; then
-    mkdir "$screenshotDir" || ( echo "Can't create screenshot directory!" && exit 1 )
-elif [[ ! -d $screenshotDir ]]; then
-    echo "$screenshotDir exists but is not a directory!" && exit 1
+if [[ ($upload -eq 0) && ($shorten -eq 1) ]]; then
+    echo "Option '--shortlink' cannot be used without '--upload' or '--upload-only'" && exit 1
 fi
 
+if [[ ! -e "$screenshotDir" ]]; then
+    mkdir "$screenshotDir" || ( echo "Can't create directory $screenshotDir" && exit 1 )
+elif [[ ! -d $screenshotDir ]]; then
+    echo "$screenshotDir exists but is not a directory" && exit 1
+fi
+
+# take the screenshot
 if command -v spectacle > /dev/null; then
-    spectacle -brn -o "$screenshotDir/$timestamp.jpg"
+    if [[ $mode == active ]]; then
+        spectacle -ban -o "$screenshotDir/$timestamp.jpg"
+    elif [[ $mode == region ]]; then
+        spectacle -brn -o "$screenshotDir/$timestamp.jpg"
+    fi
 elif command -v scrot > /dev/null; then
-    scrot -f -s -l mode=classic,style=dash,width=1,color="#2b59a7" -F ~/"$screenshotDir/$timestamp.jpg"
+    if [[ $mode == active ]]; then
+        scrot -u -F ~/"$screenshotDir/$timestamp.jpg"
+    elif [[ $mode == region ]]; then
+        scrot -fs -l mode=classic,style=dash,width=1,color="#2b59a7" -F ~/"$screenshotDir/$timestamp.jpg"
+    fi
 elif command -v shutter > /dev/null; then
-    shutter -s -o "$screenshotDir/$timestamp.jpg"
+    if [[ $mode == active ]]; then
+        shutter -a -o "$screenshotDir/$timestamp.jpg"
+    elif [[ $mode == region ]]; then
+        shutter -s -o "$screenshotDir/$timestamp.jpg"
+    fi
 else
+    echo "Couldn't find supported screenshot tool. Please ensure that one of the supported tools (spectacle, scrot, shutter) is available on the PATH and try again!" && exit 1
+fi
 
 image="$screenshotDir/$timestamp.jpg"
 
+# die if screenshot failed to save
 if [[ ! -e "$image" ]]; then
     echo "Screenshot capture failed!" && exit 1
 fi
 
-if [[ ! $doUpload ]]; then
-    echo "$image" && exit 0;
+# upload and shorten url
+if [[ $upload -eq 0 && $shorten -eq 0 ]]; then
+    echo "$image" && exit 0
 else
     imageUrl=$(curl -fsSL -F "files[]=@$image" "$uppomf" | jq -c -r '.files[].url')
 
-    shortlink=$(curl -fsSL "$shortener$imageUrl")
+    if [[ $deleteWhenUploaded -eq 1 ]]; then
+        rm "$image"
+    fi
 
-    if [[ ! $clipboard ]]; then
-        echo "$shortlink" && exit 0;
-    else
-        qdbus org.kde.klipper /klipper setClipboardContents "$shortlink" && exit 0;
+    if [[ $shorten -eq 1 ]]; then
+        shortlink=$(curl -fsSL "$shortener$imageUrl")
+    fi
+
+    echo ${shortlink:-$imageUrl}
+
+    if [[ $clipboard -eq 1 ]]; then
+        qdbus org.kde.klipper /klipper setClipboardContents "${shortlink:-$imageUrl}"
     fi
 fi
